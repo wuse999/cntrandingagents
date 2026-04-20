@@ -1,4 +1,4 @@
-# TradingAgents/graph/trading_graph.py
+# 图主入口
 
 import os
 from pathlib import Path
@@ -20,7 +20,7 @@ from tradingagents.agents.utils.agent_states import (
 )
 from tradingagents.dataflows.config import set_config
 
-# Import the new abstract tool methods from agent_utils
+# 从 agent_utils 导入新的抽象工具方法
 from tradingagents.agents.utils.agent_utils import (
     get_stock_data,
     get_indicators,
@@ -41,7 +41,7 @@ from .signal_processing import SignalProcessor
 
 
 class TradingAgentsGraph:
-    """Main class that orchestrates the trading agents framework."""
+    """统筹整个 TradingAgents 框架的主类。"""
 
     def __init__(
         self,
@@ -50,29 +50,29 @@ class TradingAgentsGraph:
         config: Dict[str, Any] = None,
         callbacks: Optional[List] = None,
     ):
-        """Initialize the trading agents graph and components.
+        """初始化 TradingAgents 图及其相关组件。
 
-        Args:
-            selected_analysts: List of analyst types to include
-            debug: Whether to run in debug mode
-            config: Configuration dictionary. If None, uses default config
-            callbacks: Optional list of callback handlers (e.g., for tracking LLM/tool stats)
+        参数：
+            selected_analysts: 要纳入的分析师类型列表
+            debug: 是否以调试模式运行
+            config: 配置字典；若为空则使用默认配置
+            callbacks: 可选回调处理器列表（例如用于追踪 LLM/工具统计）
         """
         self.debug = debug
         self.config = config or DEFAULT_CONFIG
         self.callbacks = callbacks or []
 
-        # Update the interface's config
+        # 更新数据接口配置
         set_config(self.config)
 
-        # Create necessary directories
+        # 创建必要目录
         os.makedirs(self.config["data_cache_dir"], exist_ok=True)
         os.makedirs(self.config["results_dir"], exist_ok=True)
 
-        # Initialize LLMs with provider-specific thinking configuration
+        # 使用提供方专属的 thinking 配置初始化 LLM
         llm_kwargs = self._get_provider_kwargs()
 
-        # Add callbacks to kwargs if provided (passed to LLM constructor)
+        # 若提供回调，则透传给 LLM 构造函数
         if self.callbacks:
             llm_kwargs["callbacks"] = self.callbacks
 
@@ -92,17 +92,17 @@ class TradingAgentsGraph:
         self.deep_thinking_llm = deep_client.get_llm()
         self.quick_thinking_llm = quick_client.get_llm()
         
-        # Initialize memories
+        # 初始化记忆模块
         self.bull_memory = FinancialSituationMemory("bull_memory", self.config)
         self.bear_memory = FinancialSituationMemory("bear_memory", self.config)
         self.trader_memory = FinancialSituationMemory("trader_memory", self.config)
         self.invest_judge_memory = FinancialSituationMemory("invest_judge_memory", self.config)
         self.portfolio_manager_memory = FinancialSituationMemory("portfolio_manager_memory", self.config)
 
-        # Create tool nodes
+        # 创建工具节点
         self.tool_nodes = self._create_tool_nodes()
 
-        # Initialize components
+        # 初始化组件
         self.conditional_logic = ConditionalLogic(
             max_debate_rounds=self.config["max_debate_rounds"],
             max_risk_discuss_rounds=self.config["max_risk_discuss_rounds"],
@@ -123,16 +123,16 @@ class TradingAgentsGraph:
         self.reflector = Reflector(self.quick_thinking_llm)
         self.signal_processor = SignalProcessor(self.quick_thinking_llm)
 
-        # State tracking
+        # 状态跟踪
         self.curr_state = None
         self.ticker = None
-        self.log_states_dict = {}  # date to full state dict
+        self.log_states_dict = {}  # 日期 -> 完整状态字典
 
-        # Set up the graph
+        # 搭建图
         self.graph = self.graph_setup.setup_graph(selected_analysts)
 
     def _get_provider_kwargs(self) -> Dict[str, Any]:
-        """Get provider-specific kwargs for LLM client creation."""
+        """获取创建 LLM 客户端时所需的提供方专属参数。"""
         kwargs = {}
         provider = self.config.get("llm_provider", "").lower()
 
@@ -154,25 +154,25 @@ class TradingAgentsGraph:
         return kwargs
 
     def _create_tool_nodes(self) -> Dict[str, ToolNode]:
-        """Create tool nodes for different data sources using abstract methods."""
+        """使用抽象工具方法为不同数据源创建工具节点。"""
         return {
             "market": ToolNode(
                 [
-                    # Core stock data tools
+                    # 核心股价数据工具
                     get_stock_data,
-                    # Technical indicators
+                    # 技术指标
                     get_indicators,
                 ]
             ),
             "social": ToolNode(
                 [
-                    # News tools for social media analysis
+                    # 用于社交媒体分析的新闻工具
                     get_news,
                 ]
             ),
             "news": ToolNode(
                 [
-                    # News and insider information
+                    # 新闻与内部人信息
                     get_news,
                     get_global_news,
                     get_insider_transactions,
@@ -180,7 +180,7 @@ class TradingAgentsGraph:
             ),
             "fundamentals": ToolNode(
                 [
-                    # Fundamental analysis tools
+                    # 基本面分析工具
                     get_fundamentals,
                     get_balance_sheet,
                     get_cashflow,
@@ -190,18 +190,18 @@ class TradingAgentsGraph:
         }
 
     def propagate(self, company_name, trade_date):
-        """Run the trading agents graph for a company on a specific date."""
+        """在指定日期为某家公司运行 TradingAgents 图。"""
 
         self.ticker = company_name
 
-        # Initialize state
+        # 初始化状态
         init_agent_state = self.propagator.create_initial_state(
             company_name, trade_date
         )
         args = self.propagator.get_graph_args()
 
         if self.debug:
-            # Debug mode with tracing
+            # 调试模式：保留执行轨迹
             trace = []
             for chunk in self.graph.stream(init_agent_state, **args):
                 if len(chunk["messages"]) == 0:
@@ -212,20 +212,20 @@ class TradingAgentsGraph:
 
             final_state = trace[-1]
         else:
-            # Standard mode without tracing
+            # 标准模式：直接执行
             final_state = self.graph.invoke(init_agent_state, **args)
 
-        # Store current state for reflection
+        # 保存当前状态，供后续复盘使用
         self.curr_state = final_state
 
-        # Log state
+        # 记录状态
         self._log_state(trade_date, final_state)
 
-        # Return decision and processed signal
+        # 返回最终状态与提取后的核心信号
         return final_state, self.process_signal(final_state["final_trade_decision"])
 
     def _log_state(self, trade_date, final_state):
-        """Log the final state to a JSON file."""
+        """将最终状态写入 JSON 日志文件。"""
         self.log_states_dict[str(trade_date)] = {
             "company_of_interest": final_state["company_of_interest"],
             "trade_date": final_state["trade_date"],
@@ -256,7 +256,7 @@ class TradingAgentsGraph:
             "final_trade_decision": final_state["final_trade_decision"],
         }
 
-        # Save to file
+        # 保存到文件
         directory = Path(self.config["results_dir"]) / self.ticker / "TradingAgentsStrategy_logs"
         directory.mkdir(parents=True, exist_ok=True)
 
@@ -265,7 +265,7 @@ class TradingAgentsGraph:
             json.dump(self.log_states_dict[str(trade_date)], f, indent=4)
 
     def reflect_and_remember(self, returns_losses):
-        """Reflect on decisions and update memory based on returns."""
+        """基于收益结果执行复盘并更新记忆。"""
         self.reflector.reflect_bull_researcher(
             self.curr_state, returns_losses, self.bull_memory
         )
@@ -283,5 +283,5 @@ class TradingAgentsGraph:
         )
 
     def process_signal(self, full_signal):
-        """Process a signal to extract the core decision."""
+        """处理信号并提取核心决策。"""
         return self.signal_processor.process_signal(full_signal)

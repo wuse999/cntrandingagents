@@ -8,23 +8,23 @@ from .validators import validate_model
 
 
 class NormalizedChatOpenAI(ChatOpenAI):
-    """ChatOpenAI with normalized content output.
+    """带有内容规范化输出的 ChatOpenAI。
 
-    The Responses API returns content as a list of typed blocks
-    (reasoning, text, etc.). This normalizes to string for consistent
-    downstream handling.
+    Responses API 会把内容以类型化块列表返回
+    （reasoning、text 等）。这里将其规整为字符串，
+    便于下游统一处理。
     """
 
     def invoke(self, input, config=None, **kwargs):
         return normalize_content(super().invoke(input, config, **kwargs))
 
-# Kwargs forwarded from user config to ChatOpenAI
+# 从用户配置透传到 ChatOpenAI 的 kwargs
 _PASSTHROUGH_KWARGS = (
     "timeout", "max_retries", "reasoning_effort",
     "api_key", "callbacks", "http_client", "http_async_client",
 )
 
-# Provider base URLs and API key env vars
+# 提供方基础 URL 与 API Key 环境变量
 _PROVIDER_CONFIG = {
     "xai": ("https://api.x.ai/v1", "XAI_API_KEY"),
     "deepseek": ("https://api.deepseek.com", "DEEPSEEK_API_KEY"),
@@ -36,12 +36,12 @@ _PROVIDER_CONFIG = {
 
 
 class OpenAIClient(BaseLLMClient):
-    """Client for OpenAI, Ollama, OpenRouter, and xAI providers.
+    """适配 OpenAI、Ollama、OpenRouter 与 xAI 的客户端。
 
-    For native OpenAI models, uses the Responses API (/v1/responses) which
-    supports reasoning_effort with function tools across all model families
-    (GPT-4.1, GPT-5). Third-party compatible providers (xAI, OpenRouter,
-    Ollama) use standard Chat Completions.
+    对原生 OpenAI 模型，使用 Responses API（/v1/responses），
+    以便在 GPT-4.1、GPT-5 等模型族上统一支持 reasoning_effort
+    与函数工具。第三方兼容提供方（xAI、OpenRouter、Ollama）
+    则使用标准 Chat Completions。
     """
 
     def __init__(
@@ -55,11 +55,11 @@ class OpenAIClient(BaseLLMClient):
         self.provider = provider.lower()
 
     def get_llm(self) -> Any:
-        """Return configured ChatOpenAI instance."""
+        """返回已配置好的 ChatOpenAI 实例。"""
         self.warn_if_unknown_model()
         llm_kwargs = {"model": self.model}
 
-        # Provider-specific base URL and auth
+        # 提供方专属基础 URL 与鉴权
         if self.provider in _PROVIDER_CONFIG:
             base_url, api_key_env = _PROVIDER_CONFIG[self.provider]
             llm_kwargs["base_url"] = base_url
@@ -72,18 +72,18 @@ class OpenAIClient(BaseLLMClient):
         elif self.base_url:
             llm_kwargs["base_url"] = self.base_url
 
-        # Forward user-provided kwargs
+        # 透传用户传入的 kwargs
         for key in _PASSTHROUGH_KWARGS:
             if key in self.kwargs:
                 llm_kwargs[key] = self.kwargs[key]
 
-        # Native OpenAI: use Responses API for consistent behavior across
-        # all model families. Third-party providers use Chat Completions.
+        # 原生 OpenAI 使用 Responses API，以统一模型族行为。
+        # 第三方兼容提供方继续使用 Chat Completions。
         if self.provider == "openai":
             llm_kwargs["use_responses_api"] = True
 
         return NormalizedChatOpenAI(**llm_kwargs)
 
     def validate_model(self) -> bool:
-        """Validate model for the provider."""
+        """校验该提供方下的模型是否合法。"""
         return validate_model(self.provider, self.model)

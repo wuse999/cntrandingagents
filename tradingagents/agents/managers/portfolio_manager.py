@@ -22,37 +22,37 @@ def create_portfolio_manager(llm, memory):
         for i, rec in enumerate(past_memories, 1):
             past_memory_str += rec["recommendation"] + "\n\n"
 
-        prompt = f"""As the Portfolio Manager, synthesize the risk analysts' debate and deliver the final trading decision.
+        prompt = f"""你现在是投资组合经理，需要综合风险分析师们的辩论结果，并给出最终交易决定。
 
 {instrument_context}
 
 ---
 
-**Rating Scale** (use exactly one):
-- **Buy**: Strong conviction to enter or add to position
-- **Overweight**: Favorable outlook, gradually increase exposure
-- **Hold**: Maintain current position, no action needed
-- **Underweight**: Reduce exposure, take partial profits
-- **Sell**: Exit position or avoid entry
+**评级刻度**（必须且只能选择一个，评级词请保留下列英文之一）：
+- **BUY**：强烈看好，适合建仓或加仓
+- **OVERWEIGHT**：前景偏积极，适合逐步提高仓位
+- **HOLD**：维持现有仓位，暂不动作
+- **UNDERWEIGHT**：降低敞口，可部分止盈或减仓
+- **SELL**：退出持仓或避免入场
 
-**Context:**
-- Research Manager's investment plan: **{research_plan}**
-- Trader's transaction proposal: **{trader_plan}**
-- Lessons from past decisions: **{past_memory_str}**
+**上下文：**
+- 研究经理的投资计划：**{research_plan}**
+- 交易员的交易提案：**{trader_plan}**
+- 过往决策中的经验教训：**{past_memory_str}**
 
-**Required Output Structure:**
-1. **Rating**: State one of Buy / Overweight / Hold / Underweight / Sell.
-2. **Executive Summary**: A concise action plan covering entry strategy, position sizing, key risk levels, and time horizon.
-3. **Investment Thesis**: Detailed reasoning anchored in the analysts' debate and past reflections.
+**必须遵守的输出结构：**
+1. **Rating**：明确写出 `BUY` / `OVERWEIGHT` / `HOLD` / `UNDERWEIGHT` / `SELL` 其中之一。
+2. **Executive Summary**：简要行动方案，覆盖入场策略、仓位大小、关键风险位和时间周期。
+3. **Investment Thesis**：结合分析师辩论与过往反思，给出详细论证。
 
 ---
 
-**Risk Analysts Debate History:**
+**风险分析师辩论历史：**
 {history}
 
 ---
 
-Be decisive and ground every conclusion in specific evidence from the analysts.{get_language_instruction()}"""
+请果断下结论，并确保每一个判断都能落到分析师提供的具体证据上。{get_language_instruction()}"""
 
         response = llm.invoke(prompt)
 

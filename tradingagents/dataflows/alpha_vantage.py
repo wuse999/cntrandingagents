@@ -1,4 +1,4 @@
-# Import functions from specialized modules
+# 从各个专用模块中导入函数
 from .alpha_vantage_stock import get_stock
 from .alpha_vantage_indicator import get_indicator
 from .alpha_vantage_fundamentals import get_fundamentals, get_balance_sheet, get_cashflow, get_income_statement

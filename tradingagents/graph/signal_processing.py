@@ -1,31 +1,31 @@
-# TradingAgents/graph/signal_processing.py
+# 图信号处理
 
 from typing import Any
 
 
 class SignalProcessor:
-    """Processes trading signals to extract actionable decisions."""
+    """处理交易信号并提取可执行决策。"""
 
     def __init__(self, quick_thinking_llm: Any):
-        """Initialize with an LLM for processing."""
+        """使用一个 LLM 初始化信号处理器。"""
         self.quick_thinking_llm = quick_thinking_llm
 
     def process_signal(self, full_signal: str) -> str:
         """
-        Process a full trading signal to extract the core decision.
+        处理完整交易信号并提取核心决策。
 
-        Args:
-            full_signal: Complete trading signal text
+        参数：
+            full_signal: 完整的交易信号文本
 
-        Returns:
-            Extracted rating (BUY, OVERWEIGHT, HOLD, UNDERWEIGHT, or SELL)
+        返回：
+            提取出的评级（BUY、OVERWEIGHT、HOLD、UNDERWEIGHT 或 SELL）
         """
         messages = [
             (
                 "system",
-                "You are an efficient assistant that extracts the trading decision from analyst reports. "
-                "Extract the rating as exactly one of: BUY, OVERWEIGHT, HOLD, UNDERWEIGHT, SELL. "
-                "Output only the single rating word, nothing else.",
+                "你是一名高效助手，需要从分析师报告中提取交易决定。"
+                "请将评级精确提取为以下五者之一：BUY、OVERWEIGHT、HOLD、UNDERWEIGHT、SELL。"
+                "只输出单个评级词，不要输出任何其他内容。",
             ),
             ("human", full_signal),
         ]

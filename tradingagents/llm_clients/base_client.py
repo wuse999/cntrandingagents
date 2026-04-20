@@ -4,12 +4,13 @@ import warnings
 
 
 def normalize_content(response):
-    """Normalize LLM response content to a plain string.
+    """将 LLM 响应内容规范化为纯字符串。
 
-    Multiple providers (OpenAI Responses API, Google Gemini 3) return content
-    as a list of typed blocks, e.g. [{'type': 'reasoning', ...}, {'type': 'text', 'text': '...'}].
-    Downstream agents expect response.content to be a string. This extracts
-    and joins the text blocks, discarding reasoning/metadata blocks.
+    多个提供方（如 OpenAI Responses API、Google Gemini 3）会把内容
+    以类型化块列表的形式返回，例如 [{'type': 'reasoning', ...},
+    {'type': 'text', 'text': '...'}]。
+    下游智能体期望 response.content 是字符串，因此这里会提取并拼接文本块，
+    丢弃 reasoning/metadata 等非正文块。
     """
     content = response.content
     if isinstance(content, list):
@@ -23,7 +24,7 @@ def normalize_content(response):
 
 
 class BaseLLMClient(ABC):
-    """Abstract base class for LLM clients."""
+    """LLM 客户端的抽象基类。"""
 
     def __init__(self, model: str, base_url: Optional[str] = None, **kwargs):
         self.model = model
@@ -31,21 +32,21 @@ class BaseLLMClient(ABC):
         self.kwargs = kwargs
 
     def get_provider_name(self) -> str:
-        """Return the provider name used in warning messages."""
+        """返回告警信息中使用的提供方名称。"""
         provider = getattr(self, "provider", None)
         if provider:
             return str(provider)
         return self.__class__.__name__.removesuffix("Client").lower()
 
     def warn_if_unknown_model(self) -> None:
-        """Warn when the model is outside the known list for the provider."""
+        """当模型不在该提供方的已知列表中时给出告警。"""
         if self.validate_model():
             return
 
         warnings.warn(
             (
-                f"Model '{self.model}' is not in the known model list for "
-                f"provider '{self.get_provider_name()}'. Continuing anyway."
+                f"模型 '{self.model}' 不在提供方 "
+                f"'{self.get_provider_name()}' 的已知模型列表中，仍将继续执行。"
             ),
             RuntimeWarning,
             stacklevel=2,
@@ -53,10 +54,10 @@ class BaseLLMClient(ABC):
 
     @abstractmethod
     def get_llm(self) -> Any:
-        """Return the configured LLM instance."""
+        """返回已配置好的 LLM 实例。"""
         pass
 
     @abstractmethod
     def validate_model(self) -> bool:
-        """Validate that the model is supported by this client."""
+        """校验该客户端是否支持当前模型。"""
         pass

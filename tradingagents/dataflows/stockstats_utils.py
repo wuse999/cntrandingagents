@@ -13,11 +13,11 @@ logger = logging.getLogger(__name__)
 
 
 def yf_retry(func, max_retries=3, base_delay=2.0):
-    """Execute a yfinance call with exponential backoff on rate limits.
+    """执行 yfinance 调用，并在限流时采用指数退避重试。
 
-    yfinance raises YFRateLimitError on HTTP 429 responses but does not
-    retry them internally. This wrapper adds retry logic specifically
-    for rate limits. Other exceptions propagate immediately.
+    yfinance 在 HTTP 429 响应时会抛出 YFRateLimitError，
+    但不会自行重试。该包装器只对限流场景补充重试逻辑，
+    其他异常会立即向外抛出。
     """
     for attempt in range(max_retries + 1):
         try:
@@ -25,14 +25,14 @@ def yf_retry(func, max_retries=3, base_delay=2.0):
         except YFRateLimitError:
             if attempt < max_retries:
                 delay = base_delay * (2 ** attempt)
-                logger.warning(f"Yahoo Finance rate limited, retrying in {delay:.0f}s (attempt {attempt + 1}/{max_retries})")
+                logger.warning(f"Yahoo Finance 触发限流，将在 {delay:.0f}s 后重试（第 {attempt + 1}/{max_retries} 次）")
                 time.sleep(delay)
             else:
                 raise
 
 
 def _clean_dataframe(data: pd.DataFrame) -> pd.DataFrame:
-    """Normalize a stock DataFrame for stockstats: parse dates, drop invalid rows, fill price gaps."""
+    """为 stockstats 规范化股票 DataFrame：解析日期、剔除无效行、填补价格缺口。"""
     data["Date"] = pd.to_datetime(data["Date"], errors="coerce")
     data = data.dropna(subset=["Date"])
 
@@ -45,16 +45,15 @@ def _clean_dataframe(data: pd.DataFrame) -> pd.DataFrame:
 
 
 def load_ohlcv(symbol: str, curr_date: str) -> pd.DataFrame:
-    """Fetch OHLCV data with caching, filtered to prevent look-ahead bias.
+    """带缓存获取 OHLCV 数据，并过滤未来数据以防止前视偏差。
 
-    Downloads 15 years of data up to today and caches per symbol. On
-    subsequent calls the cache is reused. Rows after curr_date are
-    filtered out so backtests never see future prices.
+    会下载截至今天的长期历史数据并按 symbol 缓存。后续调用复用缓存。
+    所有晚于 curr_date 的行都会被过滤，确保回测不会看到未来价格。
     """
     config = get_config()
     curr_date_dt = pd.to_datetime(curr_date)
 
-    # Cache uses a fixed window (15y to today) so one file per symbol
+    # 缓存使用固定时间窗口，因此每个 symbol 只维护一个文件
     today_date = pd.Timestamp.today()
     start_date = today_date - pd.DateOffset(years=5)
     start_str = start_date.strftime("%Y-%m-%d")
@@ -82,18 +81,17 @@ def load_ohlcv(symbol: str, curr_date: str) -> pd.DataFrame:
 
     data = _clean_dataframe(data)
 
-    # Filter to curr_date to prevent look-ahead bias in backtesting
+    # 过滤到 curr_date，避免回测时出现前视偏差
     data = data[data["Date"] <= curr_date_dt]
 
     return data
 
 
 def filter_financials_by_date(data: pd.DataFrame, curr_date: str) -> pd.DataFrame:
-    """Drop financial statement columns (fiscal period timestamps) after curr_date.
+    """删除晚于 curr_date 的财报列（财报期结束日期）。
 
-    yfinance financial statements use fiscal period end dates as columns.
-    Columns after curr_date represent future data and are removed to
-    prevent look-ahead bias.
+    yfinance 财务报表会把财报期结束日期放在列名里。
+    晚于 curr_date 的列意味着未来数据，因此需要移除以避免前视偏差。
     """
     if not curr_date or data.empty:
         return data
@@ -105,12 +103,12 @@ def filter_financials_by_date(data: pd.DataFrame, curr_date: str) -> pd.DataFram
 class StockstatsUtils:
     @staticmethod
     def get_stock_stats(
-        symbol: Annotated[str, "ticker symbol for the company"],
+        symbol: Annotated[str, "公司股票代码"],
         indicator: Annotated[
-            str, "quantitative indicators based off of the stock data for the company"
+            str, "基于公司股票数据计算的量化技术指标"
         ],
         curr_date: Annotated[
-            str, "curr date for retrieving stock price data, YYYY-mm-dd"
+            str, "用于获取股价数据的参考日期，格式为 YYYY-mm-dd"
         ],
     ):
         data = load_ohlcv(symbol, curr_date)
@@ -118,11 +116,11 @@ class StockstatsUtils:
         df["Date"] = df["Date"].dt.strftime("%Y-%m-%d")
         curr_date_str = pd.to_datetime(curr_date).strftime("%Y-%m-%d")
 
-        df[indicator]  # trigger stockstats to calculate the indicator
+        df[indicator]  # 触发 stockstats 计算该指标
         matching_rows = df[df["Date"].str.startswith(curr_date_str)]
 
         if not matching_rows.empty:
             indicator_value = matching_rows[indicator].values[0]
             return indicator_value
         else:
-            return "N/A: Not a trading day (weekend or holiday)"
+            return "N/A：非交易日（周末或节假日）"

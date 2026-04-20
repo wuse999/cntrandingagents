@@ -7,7 +7,7 @@ from cli.config import CLI_CONFIG
 
 
 def fetch_announcements(url: str = None, timeout: float = None) -> dict:
-    """Fetch announcements from endpoint. Returns dict with announcements and settings."""
+    """从接口获取公告，返回包含公告内容和设置项的字典。"""
     endpoint = url or CLI_CONFIG["announcements_url"]
     timeout = timeout or CLI_CONFIG["announcements_timeout"]
     fallback = CLI_CONFIG["announcements_fallback"]
@@ -28,7 +28,7 @@ def fetch_announcements(url: str = None, timeout: float = None) -> dict:
 
 
 def display_announcements(console: Console, data: dict) -> None:
-    """Display announcements panel. Prompts for Enter if require_attention is True."""
+    """展示公告面板；若 require_attention 为 True，则要求按 Enter 确认。"""
     announcements = data.get("announcements", [])
     require_attention = data.get("require_attention", False)
 

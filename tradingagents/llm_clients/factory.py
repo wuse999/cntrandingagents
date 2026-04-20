@@ -6,7 +6,7 @@ from .anthropic_client import AnthropicClient
 from .google_client import GoogleClient
 from .azure_client import AzureOpenAIClient
 
-# Providers that use the OpenAI-compatible chat completions API
+# 使用 OpenAI 兼容 Chat Completions API 的提供方
 _OPENAI_COMPATIBLE = (
     "openai", "xai", "deepseek", "qwen", "glm", "ollama", "openrouter",
 )
@@ -18,19 +18,19 @@ def create_llm_client(
     base_url: Optional[str] = None,
     **kwargs,
 ) -> BaseLLMClient:
-    """Create an LLM client for the specified provider.
+    """为指定提供方创建 LLM 客户端。
 
-    Args:
-        provider: LLM provider name
-        model: Model name/identifier
-        base_url: Optional base URL for API endpoint
-        **kwargs: Additional provider-specific arguments
+    参数：
+        provider: LLM 提供方名称
+        model: 模型名称/标识符
+        base_url: 可选的 API 基础地址
+        **kwargs: 其他提供方专属参数
 
-    Returns:
-        Configured BaseLLMClient instance
+    返回：
+        BaseLLMClient: 已配置的客户端实例
 
-    Raises:
-        ValueError: If provider is not supported
+    异常：
+        ValueError: 当 provider 不受支持时抛出
     """
     provider_lower = provider.lower()
 
@@ -46,4 +46,4 @@ def create_llm_client(
     if provider_lower == "azure":
         return AzureOpenAIClient(model, base_url, **kwargs)
 
-    raise ValueError(f"Unsupported LLM provider: {provider}")
+    raise ValueError(f"不支持的 LLM 提供方：{provider}")

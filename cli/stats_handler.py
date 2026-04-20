@@ -7,7 +7,7 @@ from langchain_core.messages import AIMessage
 
 
 class StatsCallbackHandler(BaseCallbackHandler):
-    """Callback handler that tracks LLM calls, tool calls, and token usage."""
+    """用于跟踪 LLM 调用、工具调用与 token 使用量的回调处理器。"""
 
     def __init__(self) -> None:
         super().__init__()
@@ -23,7 +23,7 @@ class StatsCallbackHandler(BaseCallbackHandler):
         prompts: List[str],
         **kwargs: Any,
     ) -> None:
-        """Increment LLM call counter when an LLM starts."""
+        """在 LLM 开始调用时递增计数器。"""
         with self._lock:
             self.llm_calls += 1
 
@@ -33,12 +33,12 @@ class StatsCallbackHandler(BaseCallbackHandler):
         messages: List[List[Any]],
         **kwargs: Any,
     ) -> None:
-        """Increment LLM call counter when a chat model starts."""
+        """在聊天模型开始调用时递增计数器。"""
         with self._lock:
             self.llm_calls += 1
 
     def on_llm_end(self, response: LLMResult, **kwargs: Any) -> None:
-        """Extract token usage from LLM response."""
+        """从 LLM 响应中提取 token 使用量。"""
         try:
             generation = response.generations[0][0]
         except (IndexError, TypeError):
@@ -61,12 +61,12 @@ class StatsCallbackHandler(BaseCallbackHandler):
         input_str: str,
         **kwargs: Any,
     ) -> None:
-        """Increment tool call counter when a tool starts."""
+        """在工具开始调用时递增计数器。"""
         with self._lock:
             self.tool_calls += 1
 
     def get_stats(self) -> Dict[str, Any]:
-        """Return current statistics."""
+        """返回当前统计信息。"""
         with self._lock:
             return {
                 "llm_calls": self.llm_calls,

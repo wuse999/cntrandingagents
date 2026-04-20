@@ -19,7 +19,7 @@ ANALYST_ORDER = [
 
 
 def get_ticker() -> str:
-    """Prompt the user to enter a ticker symbol."""
+    """提示用户输入股票代码。"""
     ticker = questionary.text(
         f"请输入要分析的准确股票代码（{TICKER_INPUT_EXAMPLES}）：",
         validate=lambda x: len(x.strip()) > 0 or "请输入有效的股票代码。",
@@ -39,12 +39,12 @@ def get_ticker() -> str:
 
 
 def normalize_ticker_symbol(ticker: str) -> str:
-    """Normalize ticker input while preserving exchange suffixes."""
+    """规范化股票代码输入，同时保留交易所后缀。"""
     return ticker.strip().upper()
 
 
 def get_analysis_date() -> str:
-    """Prompt the user to enter a date in YYYY-MM-DD format."""
+    """提示用户输入 YYYY-MM-DD 格式的日期。"""
     import re
     from datetime import datetime
 
@@ -77,7 +77,7 @@ def get_analysis_date() -> str:
 
 
 def select_analysts() -> List[AnalystType]:
-    """Select analysts using an interactive checkbox."""
+    """通过交互式多选框选择分析师。"""
     choices = questionary.checkbox(
         "请选择你的[分析师团队]：",
         choices=[
@@ -103,9 +103,9 @@ def select_analysts() -> List[AnalystType]:
 
 
 def select_research_depth() -> int:
-    """Select research depth using an interactive selection."""
+    """通过交互式选择器选择研究深度。"""
 
-    # Define research depth options with their corresponding values
+    # 定义研究深度选项及其对应值
     DEPTH_OPTIONS = [
         ("浅度：快速研究，较少辩论与策略讨论轮次", 1),
         ("中度：平衡模式，适中的辩论与策略讨论轮次", 3),
@@ -135,7 +135,7 @@ def select_research_depth() -> int:
 
 
 def _fetch_openrouter_models() -> List[Tuple[str, str]]:
-    """Fetch available models from the OpenRouter API."""
+    """从 OpenRouter API 拉取可用模型列表。"""
     import requests
     try:
         resp = requests.get("https://openrouter.ai/api/v1/models", timeout=10)
@@ -148,7 +148,7 @@ def _fetch_openrouter_models() -> List[Tuple[str, str]]:
 
 
 def select_openrouter_model() -> str:
-    """Select an OpenRouter model from the newest available, or enter a custom ID."""
+    """从最新可用模型中选择 OpenRouter 模型，或手动输入自定义 ID。"""
     models = _fetch_openrouter_models()
 
     choices = [questionary.Choice(name, value=mid) for name, mid in models[:5]]
@@ -175,7 +175,7 @@ def select_openrouter_model() -> str:
 
 
 def _prompt_custom_model_id() -> str:
-    """Prompt user to type a custom model ID."""
+    """提示用户输入自定义模型 ID。"""
     return questionary.text(
         "请输入模型 ID：",
         validate=lambda x: len(x.strip()) > 0 or "请输入模型 ID。",
@@ -183,18 +183,20 @@ def _prompt_custom_model_id() -> str:
 
 
 def _select_model(provider: str, mode: str) -> str:
-    """Select a model for the given provider and mode (quick/deep)."""
+    """为指定提供方和模式（quick/deep）选择模型。"""
+    thinking_mode_label = "浅层思考" if mode == "quick" else "深度思考"
+
     if provider.lower() == "openrouter":
         return select_openrouter_model()
 
     if provider.lower() == "azure":
         return questionary.text(
-            f"请输入 Azure 部署名称（{mode}-thinking）：",
+            f"请输入 Azure 部署名称（用于{thinking_mode_label}）：",
             validate=lambda x: len(x.strip()) > 0 or "请输入部署名称。",
         ).ask().strip()
 
     choice = questionary.select(
-        f"请选择你的[{mode.title()}-Thinking LLM 引擎]：",
+        f"请选择你的[{thinking_mode_label} LLM 模型]：",
         choices=[
             questionary.Choice(display, value=value)
             for display, value in get_model_options(provider, mode)
@@ -210,7 +212,7 @@ def _select_model(provider: str, mode: str) -> str:
     ).ask()
 
     if choice is None:
-        console.print(f"\n[red]未选择 {mode} thinking LLM 引擎，程序即将退出。[/red]")
+        console.print(f"\n[red]未选择{thinking_mode_label} LLM 模型，程序即将退出。[/red]")
         exit(1)
 
     if choice == "custom":
@@ -220,16 +222,16 @@ def _select_model(provider: str, mode: str) -> str:
 
 
 def select_shallow_thinking_agent(provider) -> str:
-    """Select shallow thinking llm engine using an interactive selection."""
+    """通过交互式选择器选择浅层思考 LLM 引擎。"""
     return _select_model(provider, "quick")
 
 
 def select_deep_thinking_agent(provider) -> str:
-    """Select deep thinking llm engine using an interactive selection."""
+    """通过交互式选择器选择深度思考 LLM 引擎。"""
     return _select_model(provider, "deep")
 
 def select_llm_provider() -> tuple[str, str | None]:
-    """Select the LLM provider and its API endpoint."""
+    """选择 LLM 提供方及其 API 接入地址。"""
     # (display_name, provider_key, base_url)
     PROVIDERS = [
         ("OpenAI", "openai", "https://api.openai.com/v1"),
@@ -269,7 +271,7 @@ def select_llm_provider() -> tuple[str, str | None]:
 
 
 def ask_openai_reasoning_effort() -> str:
-    """Ask for OpenAI reasoning effort level."""
+    """询问 OpenAI 的推理强度级别。"""
     choices = [
         questionary.Choice("中等（默认）", "medium"),
         questionary.Choice("高（更充分）", "high"),
@@ -287,9 +289,9 @@ def ask_openai_reasoning_effort() -> str:
 
 
 def ask_anthropic_effort() -> str | None:
-    """Ask for Anthropic effort level.
+    """询问 Anthropic 的 effort 级别。
 
-    Controls token usage and response thoroughness on Claude 4.5+ and 4.6 models.
+    该配置会影响 Claude 4.5+ 与 4.6 模型的 token 使用量和回答展开程度。
     """
     return questionary.select(
         "请选择努力级别：",
@@ -307,16 +309,16 @@ def ask_anthropic_effort() -> str | None:
 
 
 def ask_gemini_thinking_config() -> str | None:
-    """Ask for Gemini thinking configuration.
+    """询问 Gemini 的思考配置。
 
-    Returns thinking_level: "high" or "minimal".
-    Client maps to appropriate API param based on model series.
+    返回的 thinking_level 为 "high" 或 "minimal"。
+    客户端会根据模型系列映射到合适的 API 参数。
     """
     return questionary.select(
-        "请选择 Thinking 模式：",
+        "请选择 Gemini 思考模式：",
         choices=[
-            questionary.Choice("启用 Thinking（推荐）", "high"),
-            questionary.Choice("最小化 / 关闭 Thinking", "minimal"),
+            questionary.Choice("启用思考（推荐）", "high"),
+            questionary.Choice("最小化 / 关闭思考", "minimal"),
         ],
         style=questionary.Style([
             ("selected", "fg:green noinherit"),
@@ -327,7 +329,7 @@ def ask_gemini_thinking_config() -> str | None:
 
 
 def ask_output_language() -> str:
-    """Ask for report output language."""
+    """询问报告输出语言。"""
     choice = questionary.select(
         "请选择输出语言：",
         choices=[

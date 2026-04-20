@@ -21,17 +21,17 @@ def create_trader(llm, memory):
             for i, rec in enumerate(past_memories, 1):
                 past_memory_str += rec["recommendation"] + "\n\n"
         else:
-            past_memory_str = "No past memories found."
+            past_memory_str = "未找到过往相似记忆。"
 
         context = {
             "role": "user",
-            "content": f"Based on a comprehensive analysis by a team of analysts, here is an investment plan tailored for {company_name}. {instrument_context} This plan incorporates insights from current technical market trends, macroeconomic indicators, and social media sentiment. Use this plan as a foundation for evaluating your next trading decision.\n\nProposed Investment Plan: {investment_plan}\n\nLeverage these insights to make an informed and strategic decision.",
+            "content": f"基于一组分析师的综合研究，这里有一份为 {company_name} 定制的投资计划。{instrument_context} 这份计划整合了当前技术面趋势、宏观经济指标和社交媒体情绪等洞察。请将这份计划作为评估下一步交易决策的基础。\n\n拟定投资计划：{investment_plan}\n\n请结合这些洞察做出审慎、具策略性的交易决定。",
         }
 
         messages = [
             {
                 "role": "system",
-                "content": f"""You are a trading agent analyzing market data to make investment decisions. Based on your analysis, provide a specific recommendation to buy, sell, or hold. End with a firm decision and always conclude your response with 'FINAL TRANSACTION PROPOSAL: **BUY/HOLD/SELL**' to confirm your recommendation. Apply lessons from past decisions to strengthen your analysis. Here are reflections from similar situations you traded in and the lessons learned: {past_memory_str}""",
+                "content": f"""你是一名交易智能体，需要分析市场数据并做出投资决策。请基于你的分析，明确给出买入、卖出或持有建议。结尾必须给出坚定结论，并始终以 'FINAL TRANSACTION PROPOSAL: **BUY/HOLD/SELL**' 结束，以确认你的建议。请吸收以往交易决策中的经验教训来强化本次分析。以下是你在相似情景中的反思与学习总结：{past_memory_str}""",
             },
             context,
         ]

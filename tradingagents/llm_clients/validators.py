@@ -1,4 +1,4 @@
-"""Model name validators for each provider."""
+"""各提供方的模型名称校验器。"""
 
 from .model_catalog import get_known_models
 
@@ -11,9 +11,9 @@ VALID_MODELS = {
 
 
 def validate_model(provider: str, model: str) -> bool:
-    """Check if model name is valid for the given provider.
+    """检查给定提供方下的模型名称是否合法。
 
-    For ollama, openrouter - any model is accepted.
+    对 ollama、openrouter 而言，任何模型名都被接受。
     """
     provider_lower = provider.lower()
 

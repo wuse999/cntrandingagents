@@ -6,7 +6,7 @@ from functools import wraps
 from rich.console import Console
 from dotenv import load_dotenv
 
-# Load environment variables
+# 加载环境变量
 load_dotenv()
 load_dotenv(".env.enterprise", override=False)
 from rich.panel import Panel
@@ -36,7 +36,7 @@ console = Console()
 app = typer.Typer(
     name="TradingAgents",
     help="TradingAgents CLI：多智能体 LLM 金融交易框架命令行工具",
-    add_completion=True,  # Enable shell completion
+    add_completion=True,  # 启用 shell 自动补全
 )
 
 TEAM_DISPLAY_NAMES = {
@@ -120,9 +120,9 @@ def display_analyst_values(values) -> str:
     return ", ".join(display_analyst_value(value) for value in values)
 
 
-# Create a deque to store recent messages with a maximum length
+# 创建一个定长 deque，用于保存最近消息
 class MessageBuffer:
-    # Fixed teams that always run (not user-selectable)
+    # 固定团队节点，始终执行（用户不可取消）
     FIXED_AGENTS = {
         "Research Team": ["Bull Researcher", "Bear Researcher", "Research Manager"],
         "Trading Team": ["Trader"],
@@ -130,7 +130,7 @@ class MessageBuffer:
         "Portfolio Management": ["Portfolio Manager"],
     }
 
-    # Analyst name mapping
+    # 分析师名称映射
     ANALYST_MAPPING = {
         "market": "Market Analyst",
         "social": "Social Analyst",
@@ -138,9 +138,9 @@ class MessageBuffer:
         "fundamentals": "Fundamentals Analyst",
     }
 
-    # Report section mapping: section -> (analyst_key for filtering, finalizing_agent)
-    # analyst_key: which analyst selection controls this section (None = always included)
-    # finalizing_agent: which agent must be "completed" for this report to count as done
+    # 报告分区映射：`section -> (用于筛选的 analyst_key, 负责收尾的 finalizing_agent)`
+    # `analyst_key`：由哪个分析师是否被选中来决定该分区是否启用（`None` 表示始终启用）
+    # `finalizing_agent`：该报告要计为完成，哪个智能体必须处于 `completed`
     REPORT_SECTIONS = {
         "market_report": ("market", "Market Analyst"),
         "sentiment_report": ("social", "Social Analyst"),
@@ -155,7 +155,7 @@ class MessageBuffer:
         self.messages = deque(maxlen=max_length)
         self.tool_calls = deque(maxlen=max_length)
         self.current_report = None
-        self.final_report = None  # Store the complete final report
+        self.final_report = None  # 保存完整的最终报告
         self.agent_status = {}
         self.current_agent = None
         self.report_sections = {}
@@ -163,33 +163,33 @@ class MessageBuffer:
         self._processed_message_ids = set()
 
     def init_for_analysis(self, selected_analysts):
-        """Initialize agent status and report sections based on selected analysts.
+        """根据所选分析师初始化状态与报告分区。
 
-        Args:
-            selected_analysts: List of analyst type strings (e.g., ["market", "news"])
+        参数：
+            selected_analysts: 分析师类型字符串列表（例如 ["market", "news"]）
         """
         self.selected_analysts = [a.lower() for a in selected_analysts]
 
-        # Build agent_status dynamically
+        # 动态构建 agent_status
         self.agent_status = {}
 
-        # Add selected analysts
+        # 添加已选择的分析师
         for analyst_key in self.selected_analysts:
             if analyst_key in self.ANALYST_MAPPING:
                 self.agent_status[self.ANALYST_MAPPING[analyst_key]] = "pending"
 
-        # Add fixed teams
+        # 添加固定团队节点
         for team_agents in self.FIXED_AGENTS.values():
             for agent in team_agents:
                 self.agent_status[agent] = "pending"
 
-        # Build report_sections dynamically
+        # 动态构建 report_sections
         self.report_sections = {}
         for section, (analyst_key, _) in self.REPORT_SECTIONS.items():
             if analyst_key is None or analyst_key in self.selected_analysts:
                 self.report_sections[section] = None
 
-        # Reset other state
+        # 重置其他状态
         self.current_report = None
         self.final_report = None
         self.current_agent = None
@@ -198,20 +198,20 @@ class MessageBuffer:
         self._processed_message_ids.clear()
 
     def get_completed_reports_count(self):
-        """Count reports that are finalized (their finalizing agent is completed).
+        """统计已经真正完成的报告数量（负责收尾的智能体已完成）。
 
-        A report is considered complete when:
-        1. The report section has content (not None), AND
-        2. The agent responsible for finalizing that report has status "completed"
+        报告被视为完成，需要同时满足：
+        1. 报告分区已有内容（不是 None）；以及
+        2. 负责最终产出该报告的智能体状态为 "completed"
 
-        This prevents interim updates (like debate rounds) from counting as completed.
+        这样可以避免把辩论中途的临时更新误计为最终完成。
         """
         count = 0
         for section in self.report_sections:
             if section not in self.REPORT_SECTIONS:
                 continue
             _, finalizing_agent = self.REPORT_SECTIONS[section]
-            # Report is complete if it has content AND its finalizing agent is done
+            # 只有“已有内容”且“收尾智能体已完成”时，该报告才算完成
             has_content = self.report_sections.get(section) is not None
             agent_done = self.agent_status.get(finalizing_agent) == "completed"
             if has_content and agent_done:
@@ -237,29 +237,29 @@ class MessageBuffer:
             self._update_current_report()
 
     def _update_current_report(self):
-        # For the panel display, only show the most recently updated section
+        # 面板展示时，仅显示最近一次更新的分区
         latest_section = None
         latest_content = None
 
-        # Find the most recently updated section
+        # 找出最近更新的分区
         for section, content in self.report_sections.items():
             if content is not None:
                 latest_section = section
                 latest_content = content
                
         if latest_section and latest_content:
-            # Format the current section for display
+            # 将当前分区格式化后用于展示
             self.current_report = (
                 f"### {SECTION_DISPLAY_NAMES[latest_section]}\n{latest_content}"
             )
 
-        # Update the final complete report
+        # 更新最终完整报告
         self._update_final_report()
 
     def _update_final_report(self):
         report_parts = []
 
-        # Analyst Team Reports - use .get() to handle missing sections
+        # 分析师团队报告：使用 .get() 兼容缺失分区
         analyst_sections = ["market_report", "sentiment_report", "news_report", "fundamentals_report"]
         if any(self.report_sections.get(section) for section in analyst_sections):
             report_parts.append("## 分析师团队报告")
@@ -280,17 +280,17 @@ class MessageBuffer:
                     f"### 基本面分析\n{self.report_sections['fundamentals_report']}"
                 )
 
-        # Research Team Reports
+        # 研究团队报告
         if self.report_sections.get("investment_plan"):
             report_parts.append("## 研究团队结论")
             report_parts.append(f"{self.report_sections['investment_plan']}")
 
-        # Trading Team Reports
+        # 交易团队报告
         if self.report_sections.get("trader_investment_plan"):
             report_parts.append("## 交易团队计划")
             report_parts.append(f"{self.report_sections['trader_investment_plan']}")
 
-        # Portfolio Management Decision
+        # 投资组合管理决策
         if self.report_sections.get("final_trade_decision"):
             report_parts.append("## 投资组合管理结论")
             report_parts.append(f"{self.report_sections['final_trade_decision']}")
@@ -318,14 +318,14 @@ def create_layout():
 
 
 def format_tokens(n):
-    """Format token count for display."""
+    """将 token 数量格式化为便于展示的形式。"""
     if n >= 1000:
         return f"{n/1000:.1f}k"
     return str(n)
 
 
 def update_display(layout, spinner_text=None, stats_handler=None, start_time=None):
-    # Header with welcome message
+    # 顶部欢迎栏
     layout["header"].update(
         Panel(
             "[bold green]欢迎使用 TradingAgents CLI[/bold green]\n"
@@ -337,21 +337,21 @@ def update_display(layout, spinner_text=None, stats_handler=None, start_time=Non
         )
     )
 
-    # Progress panel showing agent status
+    # 展示智能体状态的进度面板
     progress_table = Table(
         show_header=True,
         header_style="bold magenta",
         show_footer=False,
-        box=box.SIMPLE_HEAD,  # Use simple header with horizontal lines
-        title=None,  # Remove the redundant Progress title
-        padding=(0, 2),  # Add horizontal padding
-        expand=True,  # Make table expand to fill available space
+        box=box.SIMPLE_HEAD,  # 使用简洁表头和横线
+        title=None,  # 去掉重复的 Progress 标题
+        padding=(0, 2),  # 增加横向内边距
+        expand=True,  # 让表格自动填满可用空间
     )
     progress_table.add_column("团队", style="cyan", justify="center", width=20)
     progress_table.add_column("代理", style="green", justify="center", width=20)
     progress_table.add_column("状态", style="yellow", justify="center", width=20)
 
-    # Group agents by team - filter to only include agents in agent_status
+    # 按团队分组，仅展示 agent_status 中存在的智能体
     all_teams = {
         "Analyst Team": [
             "Market Analyst",
@@ -365,7 +365,7 @@ def update_display(layout, spinner_text=None, stats_handler=None, start_time=Non
         "Portfolio Management": ["Portfolio Manager"],
     }
 
-    # Filter teams to only include agents that are in agent_status
+    # 过滤团队，只保留当前启用的智能体
     teams = {}
     for team, agents in all_teams.items():
         active_agents = [a for a in agents if a in message_buffer.agent_status]
@@ -373,7 +373,7 @@ def update_display(layout, spinner_text=None, stats_handler=None, start_time=Non
             teams[team] = active_agents
 
     for team, agents in teams.items():
-        # Add first agent with team name
+        # 添加每个团队的第一位智能体，并带上团队名
         first_agent = agents[0]
         status = message_buffer.agent_status.get(first_agent, "pending")
         if status == "in_progress":
@@ -390,7 +390,7 @@ def update_display(layout, spinner_text=None, stats_handler=None, start_time=Non
             status_cell = f"[{status_color}]{display_status_name(status)}[/{status_color}]"
         progress_table.add_row(display_team_name(team), display_agent_name(first_agent), status_cell)
 
-        # Add remaining agents in team
+        # 添加该团队其余智能体
         for agent in agents[1:]:
             status = message_buffer.agent_status.get(agent, "pending")
             if status == "in_progress":
@@ -407,56 +407,56 @@ def update_display(layout, spinner_text=None, stats_handler=None, start_time=Non
                 status_cell = f"[{status_color}]{display_status_name(status)}[/{status_color}]"
             progress_table.add_row("", display_agent_name(agent), status_cell)
 
-        # Add horizontal line after each team
+        # 每个团队结束后添加分隔线
         progress_table.add_row("─" * 20, "─" * 20, "─" * 20, style="dim")
 
     layout["progress"].update(
         Panel(progress_table, title="进度", border_style="cyan", padding=(1, 2))
     )
 
-    # Messages panel showing recent messages and tool calls
+    # 消息面板：展示最近消息与工具调用
     messages_table = Table(
         show_header=True,
         header_style="bold magenta",
         show_footer=False,
-        expand=True,  # Make table expand to fill available space
-        box=box.MINIMAL,  # Use minimal box style for a lighter look
-        show_lines=True,  # Keep horizontal lines
-        padding=(0, 1),  # Add some padding between columns
+        expand=True,  # 让表格自动填满可用空间
+        box=box.MINIMAL,  # 使用更轻量的边框样式
+        show_lines=True,  # 保留横向分隔线
+        padding=(0, 1),  # 在列之间增加少量留白
     )
     messages_table.add_column("时间", style="cyan", width=8, justify="center")
     messages_table.add_column("类型", style="green", width=10, justify="center")
     messages_table.add_column(
         "内容", style="white", no_wrap=False, ratio=1
-    )  # Make content column expand
+    )  # 让内容列自适应扩展
 
-    # Combine tool calls and messages
+    # 合并工具调用与普通消息
     all_messages = []
 
-    # Add tool calls
+    # 加入工具调用
     for timestamp, tool_name, args in message_buffer.tool_calls:
         formatted_args = format_tool_args(args)
         all_messages.append((timestamp, "Tool", f"{tool_name}: {formatted_args}"))
 
-    # Add regular messages
+    # 加入普通消息
     for timestamp, msg_type, content in message_buffer.messages:
         content_str = str(content) if content else ""
         if len(content_str) > 200:
             content_str = content_str[:197] + "..."
         all_messages.append((timestamp, msg_type, content_str))
 
-    # Sort by timestamp descending (newest first)
+    # 按时间戳倒序排序（最新在前）
     all_messages.sort(key=lambda x: x[0], reverse=True)
 
-    # Calculate how many messages we can show based on available space
+    # 根据可用空间计算最多可展示多少条消息
     max_messages = 12
 
-    # Get the first N messages (newest ones)
+    # 取前 N 条消息（即最新消息）
     recent_messages = all_messages[:max_messages]
 
-    # Add messages to table (already in newest-first order)
+    # 将消息加入表格（当前已经是最新在前的顺序）
     for timestamp, msg_type, content in recent_messages:
-        # Format content with word wrapping
+        # 对内容进行换行整理
         wrapped_content = Text(content, overflow="fold")
         messages_table.add_row(timestamp, display_message_type(msg_type), wrapped_content)
 
@@ -469,7 +469,7 @@ def update_display(layout, spinner_text=None, stats_handler=None, start_time=Non
         )
     )
 
-    # Analysis panel showing current report
+    # 分析面板：展示当前报告
     if message_buffer.current_report:
         layout["analysis"].update(
             Panel(
@@ -489,27 +489,27 @@ def update_display(layout, spinner_text=None, stats_handler=None, start_time=Non
             )
         )
 
-    # Footer with statistics
-    # Agent progress - derived from agent_status dict
+    # 底部统计栏
+    # 智能体进度由 agent_status 字典推导
     agents_completed = sum(
         1 for status in message_buffer.agent_status.values() if status == "completed"
     )
     agents_total = len(message_buffer.agent_status)
 
-    # Report progress - based on agent completion (not just content existence)
+    # 报告进度以智能体完成状态为准，而不仅仅看是否已有内容
     reports_completed = message_buffer.get_completed_reports_count()
     reports_total = len(message_buffer.report_sections)
 
-    # Build stats parts
+    # 构建统计信息片段
     stats_parts = [f"代理: {agents_completed}/{agents_total}"]
 
-    # LLM and tool stats from callback handler
+    # 从回调处理器中获取 LLM 与工具统计
     if stats_handler:
         stats = stats_handler.get_stats()
         stats_parts.append(f"LLM: {stats['llm_calls']}")
         stats_parts.append(f"工具: {stats['tool_calls']}")
 
-        # Token display with graceful fallback
+        # 令牌统计展示，无法获取时优雅降级
         if stats["tokens_in"] > 0 or stats["tokens_out"] > 0:
             tokens_str = f"令牌: {format_tokens(stats['tokens_in'])}\u2191 {format_tokens(stats['tokens_out'])}\u2193"
         else:
@@ -518,7 +518,7 @@ def update_display(layout, spinner_text=None, stats_handler=None, start_time=Non
 
     stats_parts.append(f"报告: {reports_completed}/{reports_total}")
 
-    # Elapsed time
+    # 已用时间
     if start_time:
         elapsed = time.time() - start_time
         elapsed_str = f"\u23f1 {int(elapsed // 60):02d}:{int(elapsed % 60):02d}"
@@ -532,12 +532,12 @@ def update_display(layout, spinner_text=None, stats_handler=None, start_time=Non
 
 
 def get_user_selections():
-    """Get all user selections before starting the analysis display."""
-    # Display ASCII art welcome message
+    """在开始分析展示前，收集全部用户选择。"""
+    # 显示 ASCII 欢迎信息
     with open(Path(__file__).parent / "static" / "welcome.txt", "r") as f:
         welcome_ascii = f.read()
 
-    # Create welcome box content
+    # 构建欢迎框内容
     welcome_content = f"{welcome_ascii}\n"
     welcome_content += "[bold green]TradingAgents：多智能体 LLM 金融交易框架 - CLI[/bold green]\n\n"
     welcome_content += "[bold]工作流程：[/bold]\n"
@@ -546,7 +546,7 @@ def get_user_selections():
         "[dim]由 [Tauric Research](https://github.com/TauricResearch) 构建[/dim]"
     )
 
-    # Create and center the welcome box
+    # 创建并居中显示欢迎框
     welcome_box = Panel(
         welcome_content,
         border_style="green",
@@ -556,13 +556,13 @@ def get_user_selections():
     )
     console.print(Align.center(welcome_box))
     console.print()
-    console.print()  # Add vertical space before announcements
+    console.print()  # 在公告前增加一行空白
 
-    # Fetch and display announcements (silent on failure)
+    # 获取并展示公告（失败时静默处理）
     announcements = fetch_announcements()
     display_announcements(console, announcements)
 
-    # Create a boxed questionnaire for each step
+    # 为每个步骤创建带边框的问题卡片
     def create_question_box(title, prompt, default=None):
         box_content = f"[bold]{title}[/bold]\n"
         box_content += f"[dim]{prompt}[/dim]"
@@ -570,7 +570,7 @@ def get_user_selections():
             box_content += f"\n[dim]默认值：{default}[/dim]"
         return Panel(box_content, border_style="blue", padding=(1, 2))
 
-    # Step 1: Ticker symbol
+    # 第 1 步：股票代码
     console.print(
         create_question_box(
             "第 1 步：股票代码",
@@ -580,7 +580,7 @@ def get_user_selections():
     )
     selected_ticker = get_ticker()
 
-    # Step 2: Analysis date
+    # 第 2 步：分析日期
     default_date = datetime.datetime.now().strftime("%Y-%m-%d")
     console.print(
         create_question_box(
@@ -591,7 +591,7 @@ def get_user_selections():
     )
     analysis_date = get_analysis_date()
 
-    # Step 3: Output language
+    # 第 3 步：输出语言
     console.print(
         create_question_box(
             "第 3 步：输出语言",
@@ -600,7 +600,7 @@ def get_user_selections():
     )
     output_language = ask_output_language()
 
-    # Step 4: Select analysts
+    # 第 4 步：选择分析师
     console.print(
         create_question_box(
             "第 4 步：分析师团队", "请选择参与本次分析的 LLM 分析师代理"
@@ -611,7 +611,7 @@ def get_user_selections():
         f"[green]已选择分析师：[/green] {display_analyst_values(analyst.value for analyst in selected_analysts)}"
     )
 
-    # Step 5: Research depth
+    # 第 5 步：研究深度
     console.print(
         create_question_box(
             "第 5 步：研究深度", "请选择本次研究深度"
@@ -619,7 +619,7 @@ def get_user_selections():
     )
     selected_research_depth = select_research_depth()
 
-    # Step 6: LLM Provider
+    # 第 6 步：LLM 提供方
     console.print(
         create_question_box(
             "第 6 步：LLM 提供方", "请选择本次分析使用的 LLM 提供方"
@@ -627,7 +627,7 @@ def get_user_selections():
     )
     selected_llm_provider, backend_url = select_llm_provider()
 
-    # Step 7: Thinking agents
+    # 第 7 步：Thinking 智能体
     console.print(
         create_question_box(
             "第 7 步：思考模型", "请选择本次分析使用的思考模型"
@@ -636,7 +636,7 @@ def get_user_selections():
     selected_shallow_thinker = select_shallow_thinking_agent(selected_llm_provider)
     selected_deep_thinker = select_deep_thinking_agent(selected_llm_provider)
 
-    # Step 8: Provider-specific thinking configuration
+    # 第 8 步：提供方专属 thinking 配置
     thinking_level = None
     reasoning_effort = None
     anthropic_effort = None
@@ -684,18 +684,18 @@ def get_user_selections():
 
 
 def get_ticker():
-    """Get ticker symbol from user input."""
+    """从用户输入中获取股票代码。"""
     return typer.prompt("", default="SPY")
 
 
 def get_analysis_date():
-    """Get the analysis date from user input."""
+    """从用户输入中获取分析日期。"""
     while True:
         date_str = typer.prompt(
             "", default=datetime.datetime.now().strftime("%Y-%m-%d")
         )
         try:
-            # Validate date format and ensure it's not in the future
+            # 校验日期格式，并确保日期不晚于今天
             analysis_date = datetime.datetime.strptime(date_str, "%Y-%m-%d")
             if analysis_date.date() > datetime.datetime.now().date():
                 console.print("[red]错误：分析日期不能晚于今天。[/red]")
@@ -708,11 +708,11 @@ def get_analysis_date():
 
 
 def save_report_to_disk(final_state, ticker: str, save_path: Path):
-    """Save complete analysis report to disk with organized subfolders."""
+    """将完整分析报告按子目录结构保存到磁盘。"""
     save_path.mkdir(parents=True, exist_ok=True)
     sections = []
 
-    # 1. Analysts
+    # 1. 分析师团队
     analysts_dir = save_path / "1_analysts"
     analyst_parts = []
     if final_state.get("market_report"):
@@ -735,7 +735,7 @@ def save_report_to_disk(final_state, ticker: str, save_path: Path):
         content = "\n\n".join(f"### {name}\n{text}" for name, text in analyst_parts)
         sections.append(f"## I. 分析师团队报告\n\n{content}")
 
-    # 2. Research
+    # 2. 研究团队
     if final_state.get("investment_debate_state"):
         research_dir = save_path / "2_research"
         debate = final_state["investment_debate_state"]
@@ -756,14 +756,14 @@ def save_report_to_disk(final_state, ticker: str, save_path: Path):
             content = "\n\n".join(f"### {name}\n{text}" for name, text in research_parts)
             sections.append(f"## II. 研究团队结论\n\n{content}")
 
-    # 3. Trading
+    # 3. 交易团队
     if final_state.get("trader_investment_plan"):
         trading_dir = save_path / "3_trading"
         trading_dir.mkdir(exist_ok=True)
         (trading_dir / "trader.md").write_text(final_state["trader_investment_plan"])
         sections.append(f"## III. 交易团队计划\n\n### 交易员\n{final_state['trader_investment_plan']}")
 
-    # 4. Risk Management
+    # 4. 风控团队
     if final_state.get("risk_debate_state"):
         risk_dir = save_path / "4_risk"
         risk = final_state["risk_debate_state"]
@@ -784,25 +784,25 @@ def save_report_to_disk(final_state, ticker: str, save_path: Path):
             content = "\n\n".join(f"### {name}\n{text}" for name, text in risk_parts)
             sections.append(f"## IV. 风控团队结论\n\n{content}")
 
-        # 5. Portfolio Manager
+        # 5. 投资组合经理
         if risk.get("judge_decision"):
             portfolio_dir = save_path / "5_portfolio"
             portfolio_dir.mkdir(exist_ok=True)
             (portfolio_dir / "decision.md").write_text(risk["judge_decision"])
             sections.append(f"## V. 投资组合经理结论\n\n### 投资组合经理\n{risk['judge_decision']}")
 
-    # Write consolidated report
+    # 写入整合后的完整报告
     header = f"# 交易分析报告：{ticker}\n\n生成时间：{datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
     (save_path / "complete_report.md").write_text(header + "\n\n".join(sections))
     return save_path / "complete_report.md"
 
 
 def display_complete_report(final_state):
-    """Display the complete analysis report sequentially (avoids truncation)."""
+    """按顺序展示完整分析报告，避免终端截断。"""
     console.print()
     console.print(Rule("完整分析报告", style="bold green"))
 
-    # I. Analyst Team Reports
+    # 第一部分：分析师团队报告
     analysts = []
     if final_state.get("market_report"):
         analysts.append(("市场分析师", final_state["market_report"]))
@@ -817,7 +817,7 @@ def display_complete_report(final_state):
         for title, content in analysts:
             console.print(Panel(Markdown(content), title=title, border_style="blue", padding=(1, 2)))
 
-    # II. Research Team Reports
+    # 第二部分：研究团队报告
     if final_state.get("investment_debate_state"):
         debate = final_state["investment_debate_state"]
         research = []
@@ -832,12 +832,12 @@ def display_complete_report(final_state):
             for title, content in research:
                 console.print(Panel(Markdown(content), title=title, border_style="blue", padding=(1, 2)))
 
-    # III. Trading Team
+    # 第三部分：交易团队
     if final_state.get("trader_investment_plan"):
         console.print(Panel("[bold]III. 交易团队计划[/bold]", border_style="yellow"))
         console.print(Panel(Markdown(final_state["trader_investment_plan"]), title="交易员", border_style="blue", padding=(1, 2)))
 
-    # IV. Risk Management Team
+    # 第四部分：风险管理团队
     if final_state.get("risk_debate_state"):
         risk = final_state["risk_debate_state"]
         risk_reports = []
@@ -852,20 +852,20 @@ def display_complete_report(final_state):
             for title, content in risk_reports:
                 console.print(Panel(Markdown(content), title=title, border_style="blue", padding=(1, 2)))
 
-        # V. Portfolio Manager Decision
+        # 第五部分：投资组合经理决策
         if risk.get("judge_decision"):
             console.print(Panel("[bold]V. 投资组合经理结论[/bold]", border_style="green"))
             console.print(Panel(Markdown(risk["judge_decision"]), title="投资组合经理", border_style="blue", padding=(1, 2)))
 
 
 def update_research_team_status(status):
-    """Update status for research team members (not Trader)."""
+    """更新研究团队成员状态（不包含 `Trader` 节点）。"""
     research_team = ["Bull Researcher", "Bear Researcher", "Research Manager"]
     for agent in research_team:
         message_buffer.update_agent_status(agent, status)
 
 
-# Ordered list of analysts for status transitions
+# 用于状态流转的分析师固定顺序
 ANALYST_ORDER = ["market", "social", "news", "fundamentals"]
 ANALYST_AGENT_NAMES = {
     "market": "Market Analyst",
@@ -882,15 +882,15 @@ ANALYST_REPORT_MAP = {
 
 
 def update_analyst_statuses(message_buffer, chunk):
-    """Update analyst statuses based on accumulated report state.
+    """基于累计报告状态更新分析师进度。
 
-    Logic:
-    - Store new report content from the current chunk if present
-    - Check accumulated report_sections (not just current chunk) for status
-    - Analysts with reports = completed
-    - First analyst without report = in_progress
-    - Remaining analysts without reports = pending
-    - When all analysts done, set Bull Researcher to in_progress
+    逻辑：
+    - 如果当前 chunk 含有新报告内容，则先写入
+    - 基于累计的 report_sections（而不是仅看当前 chunk）判断状态
+    - 已产出报告的分析师记为 `completed`
+    - 第一个尚未产出报告的分析师记为 `in_progress`
+    - 其余尚未产出报告的分析师记为 `pending`
+    - 当所有分析师都完成后，将 `Bull Researcher` 切换为 `in_progress`
     """
     selected = message_buffer.selected_analysts
     found_active = False
@@ -902,11 +902,11 @@ def update_analyst_statuses(message_buffer, chunk):
         agent_name = ANALYST_AGENT_NAMES[analyst_key]
         report_key = ANALYST_REPORT_MAP[analyst_key]
 
-        # Capture new report content from current chunk
+        # 从当前 chunk 中提取新的报告内容
         if chunk.get(report_key):
             message_buffer.update_report_section(report_key, chunk[report_key])
 
-        # Determine status from accumulated sections, not just current chunk
+        # 根据累计分区内容判断状态，而不是只看当前 chunk
         has_report = bool(message_buffer.report_sections.get(report_key))
 
         if has_report:
@@ -917,19 +917,20 @@ def update_analyst_statuses(message_buffer, chunk):
         else:
             message_buffer.update_agent_status(agent_name, "pending")
 
-    # When all analysts complete, transition research team to in_progress
+    # 当所有分析师完成后，将研究团队切换为 in_progress
     if not found_active and selected:
         if message_buffer.agent_status.get("Bull Researcher") == "pending":
             message_buffer.update_agent_status("Bull Researcher", "in_progress")
 
 def extract_content_string(content):
-    """Extract string content from various message formats.
-    Returns None if no meaningful text content is found.
+    """从多种消息格式中提取字符串内容。
+
+    如果没有有意义的文本内容，则返回 None。
     """
     import ast
 
     def is_empty(val):
-        """Check if value is empty using Python's truthiness."""
+        """利用 Python 的真值规则判断内容是否为空。"""
         if val is None or val == '':
             return True
         if isinstance(val, str):
@@ -939,7 +940,7 @@ def extract_content_string(content):
             try:
                 return not bool(ast.literal_eval(s))
             except (ValueError, SyntaxError):
-                return False  # Can't parse = real text
+                return False  # 无法解析说明是真实文本
         return not bool(val)
 
     if is_empty(content):
@@ -965,11 +966,12 @@ def extract_content_string(content):
 
 
 def classify_message_type(message) -> tuple[str, str | None]:
-    """Classify LangChain message into display type and extract content.
+    """将 LangChain 消息归类为展示类型，并提取内容。
 
-    Returns:
-        (type, content) - type is one of: User, Agent, Data, Control
-                        - content is extracted string or None
+    返回：
+        (type, content)
+        - `type` 取值之一：`User`、`Agent`、`Data`、`Control`
+        - `content` 为提取出的字符串或 `None`
     """
     from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
@@ -986,22 +988,22 @@ def classify_message_type(message) -> tuple[str, str | None]:
     if isinstance(message, AIMessage):
         return ("Agent", content)
 
-    # Fallback for unknown types
+    # 未知类型的回退分支
     return ("System", content)
 
 
 def format_tool_args(args, max_length=80) -> str:
-    """Format tool arguments for terminal display."""
+    """将工具参数格式化为适合终端显示的短文本。"""
     result = str(args)
     if len(result) > max_length:
         return result[:max_length - 3] + "..."
     return result
 
 def run_analysis():
-    # First get all user selections
+    # 先获取全部用户选择
     selections = get_user_selections()
 
-    # Create config with selected research depth
+    # 根据所选研究深度构建配置
     config = DEFAULT_CONFIG.copy()
     config["max_debate_rounds"] = selections["research_depth"]
     config["max_risk_discuss_rounds"] = selections["research_depth"]
@@ -1009,20 +1011,20 @@ def run_analysis():
     config["deep_think_llm"] = selections["deep_thinker"]
     config["backend_url"] = selections["backend_url"]
     config["llm_provider"] = selections["llm_provider"].lower()
-    # Provider-specific thinking configuration
+    # 提供方专属 thinking 配置
     config["google_thinking_level"] = selections.get("google_thinking_level")
     config["openai_reasoning_effort"] = selections.get("openai_reasoning_effort")
     config["anthropic_effort"] = selections.get("anthropic_effort")
     config["output_language"] = selections.get("output_language", "English")
 
-    # Create stats callback handler for tracking LLM/tool calls
+    # 创建统计回调处理器，用于跟踪 LLM/工具调用
     stats_handler = StatsCallbackHandler()
 
-    # Normalize analyst selection to predefined order (selection is a 'set', order is fixed)
+    # 将分析师选择归一化为预定义顺序（原始选择为 set，顺序不固定）
     selected_set = {analyst.value for analyst in selections["analysts"]}
     selected_analyst_keys = [a for a in ANALYST_ORDER if a in selected_set]
 
-    # Initialize the graph with callbacks bound to LLMs
+    # 初始化图，并把回调绑定到 LLM
     graph = TradingAgentsGraph(
         selected_analyst_keys,
         config=config,
@@ -1030,13 +1032,13 @@ def run_analysis():
         callbacks=[stats_handler],
     )
 
-    # Initialize message buffer with selected analysts
+    # 使用所选分析师初始化消息缓冲区
     message_buffer.init_for_analysis(selected_analyst_keys)
 
-    # Track start time for elapsed display
+    # 记录开始时间，用于展示耗时
     start_time = time.time()
 
-    # Create result directory
+    # 创建结果目录
     results_dir = Path(config["results_dir"]) / selections["ticker"] / selections["analysis_date"]
     results_dir.mkdir(parents=True, exist_ok=True)
     report_dir = results_dir / "reports"
@@ -1050,7 +1052,7 @@ def run_analysis():
         def wrapper(*args, **kwargs):
             func(*args, **kwargs)
             timestamp, message_type, content = obj.messages[-1]
-            content = content.replace("\n", " ")  # Replace newlines with spaces
+            content = content.replace("\n", " ")  # 将换行替换为空格
             with open(log_file, "a") as f:
                 f.write(f"{timestamp} [{message_type}] {content}\n")
         return wrapper
@@ -1084,14 +1086,14 @@ def run_analysis():
     message_buffer.add_tool_call = save_tool_call_decorator(message_buffer, "add_tool_call")
     message_buffer.update_report_section = save_report_section_decorator(message_buffer, "update_report_section")
 
-    # Now start the display layout
+    # 现在开始渲染展示布局
     layout = create_layout()
 
     with Live(layout, refresh_per_second=4) as live:
-        # Initial display
+        # 首次渲染
         update_display(layout, stats_handler=stats_handler, start_time=start_time)
 
-        # Add initial messages
+        # 添加初始消息
         message_buffer.add_message("System", f"已选择股票代码：{selections['ticker']}")
         message_buffer.add_message(
             "System", f"分析日期：{selections['analysis_date']}"
@@ -1102,29 +1104,29 @@ def run_analysis():
         )
         update_display(layout, stats_handler=stats_handler, start_time=start_time)
 
-        # Update agent status to in_progress for the first analyst
+        # 将第一位分析师的状态切换为 in_progress
         first_analyst = f"{selections['analysts'][0].value.capitalize()} Analyst"
         message_buffer.update_agent_status(first_analyst, "in_progress")
         update_display(layout, stats_handler=stats_handler, start_time=start_time)
 
-        # Create spinner text
+        # 构建加载提示文本
         spinner_text = (
             f"正在分析 {selections['ticker']}（日期：{selections['analysis_date']}）..."
         )
         update_display(layout, spinner_text, stats_handler=stats_handler, start_time=start_time)
 
-        # Initialize state and get graph args with callbacks
+        # 初始化状态，并获取带回调的图执行参数
         init_agent_state = graph.propagator.create_initial_state(
             selections["ticker"], selections["analysis_date"]
         )
-        # Pass callbacks to graph config for tool execution tracking
-        # (LLM tracking is handled separately via LLM constructor)
+        # 将回调传给图配置，用于跟踪工具执行
+        # （LLM 跟踪通过 LLM 构造函数单独处理）
         args = graph.propagator.get_graph_args(callbacks=[stats_handler])
 
-        # Stream the analysis
+        # 流式执行分析
         trace = []
         for chunk in graph.graph.stream(init_agent_state, **args):
-            # Process all messages in chunk, deduplicating by message ID
+            # 处理 chunk 中的全部消息，并按消息 ID 去重
             for message in chunk.get("messages", []):
                 msg_id = getattr(message, "id", None)
                 if msg_id is not None:
@@ -1143,17 +1145,17 @@ def run_analysis():
                         else:
                             message_buffer.add_tool_call(tool_call.name, tool_call.args)
 
-            # Update analyst statuses based on report state (runs on every chunk)
+            # 基于报告状态更新分析师进度（每个 chunk 都会执行）
             update_analyst_statuses(message_buffer, chunk)
 
-            # Research Team - Handle Investment Debate State
+            # 研究团队：处理 `investment_debate_state`
             if chunk.get("investment_debate_state"):
                 debate_state = chunk["investment_debate_state"]
                 bull_hist = debate_state.get("bull_history", "").strip()
                 bear_hist = debate_state.get("bear_history", "").strip()
                 judge = debate_state.get("judge_decision", "").strip()
 
-                # Only update status when there's actual content
+                # 仅在确实存在内容时才更新状态
                 if bull_hist or bear_hist:
                     update_research_team_status("in_progress")
                 if bull_hist:
@@ -1171,7 +1173,7 @@ def run_analysis():
                     update_research_team_status("completed")
                     message_buffer.update_agent_status("Trader", "in_progress")
 
-            # Trading Team
+            # 交易团队
             if chunk.get("trader_investment_plan"):
                 message_buffer.update_report_section(
                     "trader_investment_plan", chunk["trader_investment_plan"]
@@ -1180,7 +1182,7 @@ def run_analysis():
                     message_buffer.update_agent_status("Trader", "completed")
                     message_buffer.update_agent_status("Aggressive Analyst", "in_progress")
 
-            # Risk Management Team - Handle Risk Debate State
+            # 风险管理团队：处理 `risk_debate_state`
             if chunk.get("risk_debate_state"):
                 risk_state = chunk["risk_debate_state"]
                 agg_hist = risk_state.get("aggressive_history", "").strip()
@@ -1217,16 +1219,16 @@ def run_analysis():
                         message_buffer.update_agent_status("Neutral Analyst", "completed")
                         message_buffer.update_agent_status("Portfolio Manager", "completed")
 
-            # Update the display
+            # 刷新展示
             update_display(layout, stats_handler=stats_handler, start_time=start_time)
 
             trace.append(chunk)
 
-        # Get final state and decision
+        # 获取最终状态与最终决策
         final_state = trace[-1]
         decision = graph.process_signal(final_state["final_trade_decision"])
 
-        # Update all agent statuses to completed
+        # 将所有智能体状态更新为 completed
         for agent in message_buffer.agent_status:
             message_buffer.update_agent_status(agent, "completed")
 
@@ -1234,17 +1236,17 @@ def run_analysis():
             "System", f"已完成 {selections['analysis_date']} 的分析"
         )
 
-        # Update final report sections
+        # 更新最终报告分区
         for section in message_buffer.report_sections.keys():
             if section in final_state:
                 message_buffer.update_report_section(section, final_state[section])
 
         update_display(layout, stats_handler=stats_handler, start_time=start_time)
 
-    # Post-analysis prompts (outside Live context for clean interaction)
+    # 分析结束后的额外交互（放在 Live 之外，避免界面干扰）
     console.print("\n[bold cyan]分析完成！[/bold cyan]\n")
 
-    # Prompt to save report
+    # 提示是否保存报告
     save_choice = typer.prompt("是否保存报告？", default="Y").strip().upper()
     if save_choice in ("Y", "YES", ""):
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -1261,7 +1263,7 @@ def run_analysis():
         except Exception as e:
             console.print(f"[red]保存报告时出错：{e}[/red]")
 
-    # Prompt to display full report
+    # 提示是否显示完整报告
     display_choice = typer.prompt("\n是否在屏幕上显示完整报告？", default="Y").strip().upper()
     if display_choice in ("Y", "YES", ""):
         display_complete_report(final_state)

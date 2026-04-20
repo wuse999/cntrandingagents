@@ -1,19 +1,19 @@
 import tradingagents.default_config as default_config
 from typing import Dict, Optional
 
-# Use default config but allow it to be overridden
+# 默认加载基础配置，同时允许后续覆盖
 _config: Optional[Dict] = None
 
 
 def initialize_config():
-    """Initialize the configuration with default values."""
+    """使用默认值初始化配置。"""
     global _config
     if _config is None:
         _config = default_config.DEFAULT_CONFIG.copy()
 
 
 def set_config(config: Dict):
-    """Update the configuration with custom values."""
+    """使用自定义值更新配置。"""
     global _config
     if _config is None:
         _config = default_config.DEFAULT_CONFIG.copy()
@@ -21,11 +21,11 @@ def set_config(config: Dict):
 
 
 def get_config() -> Dict:
-    """Get the current configuration."""
+    """获取当前配置。"""
     if _config is None:
         initialize_config()
     return _config.copy()
 
 
-# Initialize with default config
+# 启动时先加载默认配置
 initialize_config()
