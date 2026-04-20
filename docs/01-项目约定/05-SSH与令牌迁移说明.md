@@ -85,7 +85,9 @@ git ls-remote git@gitee.com:frpnat/cntrandingagents.git refs/heads/main
 ## 11. 当前明确结论
 
 - `cntrandingagents` 可直接继承 `cnfrp` 的 SSH 与 API Token 基线。
-- 当前最需要做的不是重新申请凭据，而是把新仓库绑定到既有认证链路并完成验证。
+- GitHub `wuse999/cntrandingagents` 与 Gitee `frpnat/cntrandingagents` 已完成新仓创建。
+- Windows 本地、Ubuntu 主工作树与 GitHub / Gitee 的基础认证链路已完成验证。
+- 当前最需要做的不是重新申请凭据，而是继续沿用既有认证链路并在每轮发布前做一次可用性核对。
 
 ## 12. 一句话结论
 
