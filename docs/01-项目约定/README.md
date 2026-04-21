@@ -30,6 +30,7 @@
 9. [09-Windows本地Git防误操作约定.md](d:/tranding/tranding_agents_cn/cntrandingagents/docs/01-项目约定/09-Windows本地Git防误操作约定.md)
 10. [10-发布与镜像规则.md](d:/tranding/tranding_agents_cn/cntrandingagents/docs/01-项目约定/10-发布与镜像规则.md)
 11. [11-AI自动执行文档与检查清单.md](d:/tranding/tranding_agents_cn/cntrandingagents/docs/01-项目约定/11-AI自动执行文档与检查清单.md)
+12. [12-Windows镜像备份保留策略.md](d:/tranding/tranding_agents_cn/cntrandingagents/docs/01-项目约定/12-Windows镜像备份保留策略.md)
 
 ## 4. 新成员阅读顺序
 
@@ -39,6 +40,7 @@
 4. 再看“哪些文件允许改，哪些不允许改”。
 5. 再看“Windows 本地 Git 为什么默认禁止直接提交/推送”。
 6. 最后再看“发布怎么做、GitHub/Gitee 怎么同步，以及 AI 默认如何自动执行整套流程”。
+7. 如涉及 Windows 本地镜像对齐备份，再看“备份如何保留、何时清理以及用什么脚本清理”。
 
 ## 5. 后续文档维护规则
 
